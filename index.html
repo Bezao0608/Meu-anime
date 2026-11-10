@@ -56,3 +56,133 @@ small,.hint{color:var(--mu)}
 <section id="t-cfg">
 <label for="key">Chave do Gemini</label>
 <input id="key" type="password" autocomplete="off" placeholder="Cole sua chave aqui">
+  <label for="model">Modelo</label>
+<input id="model" autocomplete="off">
+<small>Se der erro de modelo, troque por outro modelo Flash gratuito do Google AI Studio.</small>
+<div class="row"><button class="b" id="savecfg">Salvar ajustes</button></div>
+<label>Backup</label>
+<small>Seus dados ficam só neste aparelho. Baixe um backup de vez em quando.</small>
+<div class="row"><button class="b" id="bk">Baixar backup</button><button class="b" id="rs">Restaurar backup</button></div>
+<input id="file" type="file" accept=".json" hidden>
+<div id="cfgmsg" class="hint"></div>
+</section>
+</main>
+<nav>
+<button data-t="chat" class="on">Escrever</button>
+<button data-t="bible">Bíblia</button>
+<button data-t="caps">Capítulos</button>
+<button data-t="cfg">Ajustes</button>
+</nav><script>
+const $=s=>document.querySelector(s);
+const S={key:'',model:'gemini-3.5-flash',bible:{pers:'',pod:'',enr:'',notas:''},chapters:[],chat:[]};
+try{Object.assign(S,JSON.parse(localStorage.getItem('anime')||'{}'))}catch(e){}
+const save=()=>{try{localStorage.setItem('anime',JSON.stringify(S))}catch(e){}};
+const esc=t=>t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+function dl(name,content,type){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([content],{type}));a.download=name;a.click()}
+
+document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{
+  document.querySelectorAll('nav button,section').forEach(x=>x.classList.remove('on'));
+  b.classList.add('on');$('#t-'+b.dataset.t).classList.add('on');
+});
+
+async function ask(system,contents){
+  if(!S.key)throw new Error('Cole sua chave do Gemini na aba Ajustes.');
+  const r=await fetch('https://generativelanguage.googleapis.com/v1beta/models/'+encodeURIComponent(S.model)+':generateContent',{
+    method:'POST',headers:{'Content-Type':'application/json','x-goog-api-key':S.key},
+    body:JSON.stringify({systemInstruction:{parts:[{text:system}]},contents})});
+  const j=await r.json();
+  if(!r.ok)throw new Error((j.error&&j.error.message)||('Erro '+r.status));
+  const c=j.candidates&&j.candidates[0];
+  const t=c&&c.content&&c.content.parts?c.content.parts.map(p=>p.text||'').join(''):'';
+  if(!t)throw new Error('Resposta vazia. O Gemini pode ter bloqueado o trecho. Reformule o pedido.');
+  return t;
+}
+
+function sys(){
+  const b=S.bible;
+  const sm=S.chapters.map((c,i)=>`Cap. ${i+1} – ${c.title}: ${c.summary||c.text.slice(0,400)}`).join('\n');
+  return `Você é meu coautor de um anime de aventura, ação e fantasia com poderes sobrenaturais. Escreva em português, em formato de história com cenas, diálogos e ação. Siga a BÍBLIA abaixo com rigor: nomes, poderes e regras nunca mudam sozinhos. Se eu pedir algo que contradiga a Bíblia ou capítulos anteriores, avise antes de escrever. Quando criarmos algo novo e importante (personagem, poder, regra), lembre-me de adicioná-lo à Bíblia.
+
+[PERSONAGENS]
+${b.pers}
+
+[PODERES E REGRAS DO MUNDO]
+${b.pod}
+
+[ENREDO GERAL]
+${b.enr}
+
+[NOTAS]
+${b.notas}
+
+[RESUMO DOS CAPÍTULOS ATÉ AGORA]
+${sm||'(nenhum ainda)'}`;
+}function renderChat(){
+  const box=$('#msgs');box.innerHTML='';
+  if(!S.chat.length){const p=document.createElement('p');p.className='hint';p.textContent='Peça seu primeiro capítulo, uma ideia de personagem ou um plano de arco. Preencha a Bíblia para o Gemini lembrar de tudo.';box.append(p)}
+  S.chat.forEach(m=>{
+    const d=document.createElement('div');d.className='m '+m.r;
+    const p=document.createElement('div');p.textContent=m.t;d.append(p);
+    if(m.r==='model'){const b=document.createElement('button');b.className='sm';b.textContent='Salvar como capítulo';b.onclick=()=>{
+      const title=prompt('Título do capítulo:');if(!title)return;
+      S.chapters.push({title,text:m.t,summary:''});save();renderCaps();$('#status').textContent='';alert('Capítulo salvo na aba Capítulos.')};d.append(b)}
+    box.append(d);
+  });
+  box.scrollTop=box.scrollHeight;
+}
+
+$('#send').onclick=async()=>{
+  const i=$('#inp'),t=i.value.trim();if(!t)return;
+  i.value='';$('#status').textContent='';
+  S.chat.push({r:'user',t});save();renderChat();
+  $('#send').disabled=true;$('#send').textContent='…';
+  try{
+    const contents=S.chat.slice(-14).map(m=>({role:m.r,parts:[{text:m.t}]}));
+    const a=await ask(sys(),contents);
+    S.chat.push({r:'model',t:a});
+  }catch(e){$('#status').textContent=e.message}
+  $('#send').disabled=false;$('#send').textContent='Enviar';save();renderChat();
+};
+
+document.querySelectorAll('[data-k]').forEach(el=>{
+  el.value=S.bible[el.dataset.k]||'';
+  el.oninput=()=>{S.bible[el.dataset.k]=el.value;save()};
+});
+
+function renderCaps(){
+  const box=$('#caps');box.innerHTML='';
+  if(!S.chapters.length){const p=document.createElement('p');p.className='hint';p.textContent='Nenhum capítulo ainda. Na aba Escrever, toque em “Salvar como capítulo” abaixo de uma resposta.';box.append(p);return}
+  S.chapters.forEach((c,i)=>{
+    const d=document.createElement('div');d.className='ch';d.style.marginBottom='12px';
+    const h=document.createElement('b');h.textContent=`Capítulo ${i+1}: ${c.title}`;d.append(h);
+    if(c.summary){const s=document.createElement('div');s.className='hint';s.textContent='Resumo: '+c.summary;d.append(s)}
+    const pre=document.createElement('pre');pre.textContent=c.text.length>500?c.text.slice(0,500)+'…':c.text;d.append(pre);
+    const mk=(txt,fn,cls)=>{const b=document.createElement('button');b.className='sm '+(cls||'');b.textContent=txt;b.onclick=fn;d.append(b);return b};
+    const rb=mk(c.summary?'Refazer resumo':'Gerar resumo (memória)',async()=>{
+      rb.disabled=true;rb.textContent='Resumindo…';
+      try{c.summary=await ask('Você resume capítulos de histórias de anime.',[{role:'user',parts:[{text:'Resuma em até 6 linhas, citando personagens, poderes usados e acontecimentos-chave:\n\n'+c.text}]}]);save()}catch(e){alert(e.message)}
+      renderCaps()});
+    mk('Baixar .txt',()=>dl(`capitulo-${i+1}.txt`,`${c.title}\n\n${c.text}`,'text/plain'));
+    mk('Excluir',()=>{if(confirm('Excluir este capítulo?')){S.chapters.splice(i,1);save();renderCaps()}},'red');
+    box.append(d);
+  });
+}
+$('#vol').onclick=()=>{
+  if(!S.chapters.length){alert('Salve ao menos um capítulo antes.');return}
+  const body=S.chapters.map((c,i)=>`<h1>Capítulo ${i+1}: ${esc(c.title)}</h1>`+c.text.split('\n').map(l=>`<p>${esc(l)}</p>`).join('')).join('<br style="page-break-before:always">');
+  dl('volume.doc','<html><head><meta charset="utf-8"></head><body>'+body+'</body></html>','application/msword');
+};
+
+$('#key').value=S.key;$('#model').value=S.model;
+$('#savecfg').onclick=()=>{S.key=$('#key').value.trim();S.model=$('#model').value.trim()||'gemini-3.5-flash';save();$('#cfgmsg').textContent='Ajustes salvos.'};
+$('#bk').onclick=()=>{const c=Object.assign({},S);delete c.key;dl('backup-anime.json',JSON.stringify(c),'application/json')};
+$('#rs').onclick=()=>$('#file').click();
+$('#file').onchange=e=>{
+  const f=e.target.files[0];if(!f)return;
+  const r=new FileReader();r.onload=()=>{try{const d=JSON.parse(r.result);delete d.key;Object.assign(S,d);save();location.reload()}catch(x){$('#cfgmsg').textContent='Arquivo de backup inválido.'}};r.readAsText(f);
+};
+
+renderChat();renderCaps();
+</script>
+</body>
+</html>
