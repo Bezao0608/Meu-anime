@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Estúdio de Anime</title>
+<style>
+:root{--bg:#eef1fa;--pn:#fff;--ink:#11131f;--mu:#5a6080;--ac:#2f4bff;--hi:#ffd23f;--er:#d6204a;color-scheme:light dark}
+@media(prefers-color-scheme:dark){:root{--bg:#0e1020;--pn:#171a2e;--ink:#eef0ff;--mu:#9aa0c8;--ac:#7c8cff}}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--ink);font:16px/1.5 system-ui,sans-serif;display:flex;flex-direction:column;padding-top:env(safe-area-inset-top,0)}
+header{padding:10px 14px;font-weight:900;font-size:20px;letter-spacing:-.5px;border-bottom:2px solid var(--ink)}
+main{flex:1;min-height:0;position:relative}
+section{display:none;position:absolute;inset:0;flex-direction:column;padding:12px;gap:10px;overflow:auto}
+section.on{display:flex}
+nav{display:flex;border-top:2px solid var(--ink);padding-bottom:env(safe-area-inset-bottom,0);background:var(--pn)}
+nav button{flex:1;padding:12px 2px;border:0;background:none;color:var(--mu);font:700 14px system-ui,sans-serif}
+nav button.on{color:var(--ink);box-shadow:inset 0 4px 0 var(--ac)}
+.m{max-width:92%;padding:10px 12px;border:2px solid var(--ink);border-radius:6px;background:var(--pn);white-space:pre-wrap;box-shadow:3px 3px 0 var(--ink)}
+.m.user{align-self:flex-end;background:var(--ac);color:#fff}
+#msgs{flex:1;overflow:auto;display:flex;flex-direction:column;gap:12px;padding:2px 4px 6px 2px}
+.row{display:flex;gap:8px;align-items:flex-end}
+textarea,input{width:100%;font:inherit;color:var(--ink);background:var(--pn);border:2px solid var(--ink);border-radius:6px;padding:9px}
+textarea{resize:vertical}
+button.b,button.sm{font:700 15px system-ui,sans-serif;border:2px solid var(--ink);border-radius:6px;background:var(--hi);color:#11131f;padding:10px 14px;box-shadow:2px 2px 0 var(--ink)}
+button.sm{font-size:13px;padding:6px 9px;margin:8px 6px 0 0}
+button.red{background:var(--er);color:#fff}
+button:disabled{opacity:.5}
+label{font-weight:800;margin-top:4px}
+small,.hint{color:var(--mu)}
+#status{color:var(--er);min-height:1.2em;font-size:14px}
+.ch{border:2px solid var(--ink);border-radius:6px;background:var(--pn);padding:10px;box-shadow:3px 3px 0 var(--ink)}
+.ch pre{white-space:pre-wrap;font:inherit;margin:8px 0 0}
+</style>
+</head>
+<body>
+<header>Estúdio de Anime</header>
+<main>
+<section id="t-chat" class="on">
+<div id="msgs"></div>
+<div id="status"></div>
+<div class="row"><textarea id="inp" rows="2" placeholder="Ex.: crie o capítulo 1 com o protagonista descobrindo seu poder"></textarea><button class="b" id="send">Enviar</button></div>
+</section>
+<section id="t-bible">
+<p class="hint">Tudo o que você escrever aqui o Gemini lê em toda mensagem. É a memória da sua história. Salva sozinho.</p>
+<label for="b-pers">Personagens</label><textarea id="b-pers" data-k="pers" rows="7" placeholder="Nome, aparência, personalidade, passado…"></textarea>
+<label for="b-pod">Poderes e regras do mundo</label><textarea id="b-pod" data-k="pod" rows="7" placeholder="Quem tem qual poder, limites, custo, como funciona a magia…"></textarea>
+<label for="b-enr">Enredo geral</label><textarea id="b-enr" data-k="enr" rows="6" placeholder="Começo, meio e fim planejados, grandes vilões…"></textarea>
+<label for="b-notas">Notas</label><textarea id="b-notas" data-k="notas" rows="4" placeholder="Estilo de escrita, o que evitar…"></textarea>
+</section>
+<section id="t-caps">
+<div class="row"><button class="b" id="vol">Baixar volume (.doc)</button></div>
+<div id="caps"></div>
+</section>
+<section id="t-cfg">
+<label for="key">Chave do Gemini</label>
+<input id="key" type="password" autocomplete="off" placeholder="Cole sua chave aqui">
