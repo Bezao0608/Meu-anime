@@ -183,6 +183,19 @@ $('#file').onchange=e=>{
 };
 
 renderChat();renderCaps();
+(function(){
+const inp=$('#inp'),row=inp.parentElement,mic=row.querySelector('button.b:not(#send)');
+if(!mic)return;
+const cap=document.createElement('div');
+cap.style.cssText='display:none;padding:12px 14px;border:2px solid var(--ink);border-radius:6px;background:var(--pn);box-shadow:3px 3px 0 var(--ink);font-size:20px;line-height:1.35;max-height:35vh;overflow:auto';
+row.before(cap);
+let t=null;
+function upd(){cap.textContent=inp.value||'Pode falar…';cap.scrollTop=cap.scrollHeight}
+new MutationObserver(()=>{
+  if(mic.classList.contains('red')){cap.style.display='block';upd();t=setInterval(upd,100)}
+  else{cap.style.display='none';clearInterval(t)}
+}).observe(mic,{attributes:true,attributeFilter:['class']});
+})();
 </script>
 </body>
 </html>
