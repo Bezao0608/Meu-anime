@@ -182,6 +182,26 @@ $('#file').onchange=e=>{
   const r=new FileReader();r.onload=()=>{try{const d=JSON.parse(r.result);delete d.key;Object.assign(S,d);save();location.reload()}catch(x){$('#cfgmsg').textContent='Arquivo de backup inválido.'}};r.readAsText(f);
 };
 
+(function(){
+const R=window.SpeechRecognition||window.webkitSpeechRecognition;
+const send=$('#send');
+const mic=document.createElement('button');
+mic.className='b';mic.textContent='🎤';mic.setAttribute('aria-label','Falar');
+send.before(mic);
+if(!R){mic.disabled=true;return}
+let rec=null,on=false,base='';
+mic.onclick=()=>{
+  if(on){rec.stop();return}
+  rec=new R();rec.lang='pt-BR';rec.interimResults=true;rec.continuous=false;
+  const inp=$('#inp');
+  base=inp.value?inp.value.trimEnd()+' ':'';
+  rec.onstart=()=>{on=true;mic.textContent='⏹';mic.classList.add('red');$('#status').textContent=''};
+  rec.onresult=e=>{let t='';for(let i=0;i<e.results.length;i++)t+=e.results[i][0].transcript;inp.value=base+t};
+  rec.onerror=e=>{$('#status').textContent=e.error==='not-allowed'?'Permita o microfone no Chrome (cadeado ao lado do endereço).':'Erro no microfone: '+e.error};
+  rec.onend=()=>{on=false;mic.textContent='🎤';mic.classList.remove('red')};
+  rec.start();
+};
+})();
 renderChat();renderCaps();
 (function(){
 const inp=$('#inp'),row=inp.parentElement,mic=row.querySelector('button.b:not(#send)');
