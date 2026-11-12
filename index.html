@@ -17,7 +17,7 @@ section.on{display:flex}
 nav{display:flex;border-top:2px solid var(--ink);padding-bottom:env(safe-area-inset-bottom,0);background:var(--pn)}
 nav button{flex:1;padding:12px 2px;border:0;background:none;color:var(--mu);font:700 14px system-ui,sans-serif}
 nav button.on{color:var(--ink);box-shadow:inset 0 4px 0 var(--ac)}
-.m{max-width:92%;padding:10px 12px;border:2px solid var(--ink);border-radius:6px;background:var(--pn);white-space:pre-wrap;box-shadow:3px 3px 0 var(--ink)}
+.m{max-width:92%;padding:10px 12px;border:2px solid var(--ink);border-radius:6px;background:var(--pn);white-space:pre-wrap;box-shadow:3px 3px 0 var(--ink);-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
 .m.user{align-self:flex-end;background:var(--ac);color:#fff}
 #msgs{flex:1;overflow:auto;display:flex;flex-direction:column;gap:12px;padding:2px 4px 6px 2px}
 .row{display:flex;gap:8px;align-items:flex-end}
@@ -30,8 +30,14 @@ button:disabled{opacity:.5}
 label{font-weight:800;margin-top:4px}
 small,.hint{color:var(--mu)}
 #status{color:var(--er);min-height:1.2em;font-size:14px}
+#cap{display:none;padding:12px 14px;border:2px solid var(--ink);border-radius:6px;background:var(--pn);box-shadow:3px 3px 0 var(--ink);font-size:20px;line-height:1.35;max-height:35vh;overflow:auto}
 .ch{border:2px solid var(--ink);border-radius:6px;background:var(--pn);padding:10px;box-shadow:3px 3px 0 var(--ink)}
 .ch pre{white-space:pre-wrap;font:inherit;margin:8px 0 0}
+.hd{display:flex;justify-content:space-between;align-items:center;margin-top:8px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(105px,1fr));gap:10px}
+.tile{border:2px solid var(--ink);border-radius:6px;background:var(--pn);padding:10px 8px;min-height:60px;box-shadow:2px 2px 0 var(--ink);font:700 14px system-ui,sans-serif;color:var(--ink);text-align:left;overflow:hidden}
+.ov{position:fixed;inset:0;background:rgba(0,0,0,.55);display:flex;align-items:flex-end;justify-content:center;z-index:9}
+.bx{width:100%;max-width:560px;max-height:88vh;overflow:auto;background:var(--bg);border:2px solid var(--ink);border-radius:10px 10px 0 0;padding:14px 14px calc(14px + env(safe-area-inset-bottom,0));display:flex;flex-direction:column;gap:8px}
 </style>
 </head>
 <body>
@@ -40,12 +46,12 @@ small,.hint{color:var(--mu)}
 <section id="t-chat" class="on">
 <div id="msgs"></div>
 <div id="status"></div>
+<div id="cap"></div>
 <div class="row"><textarea id="inp" rows="2" placeholder="Ex.: crie o capítulo 1 com o protagonista descobrindo seu poder"></textarea><button class="b" id="send">Enviar</button></div>
 </section>
 <section id="t-bible">
-<p class="hint">Tudo o que você escrever aqui o Gemini lê em toda mensagem. É a memória da sua história. Salva sozinho.</p>
-<label for="b-pers">Personagens</label><textarea id="b-pers" data-k="pers" rows="7" placeholder="Nome, aparência, personalidade, passado…"></textarea>
-<label for="b-pod">Poderes e regras do mundo</label><textarea id="b-pod" data-k="pod" rows="7" placeholder="Quem tem qual poder, limites, custo, como funciona a magia…"></textarea>
+<p class="hint">Crie cartões com o que já está definido. O Gemini lê tudo isso em toda mensagem.</p>
+<div id="bib"></div>
 <label for="b-enr">Enredo geral</label><textarea id="b-enr" data-k="enr" rows="6" placeholder="Começo, meio e fim planejados, grandes vilões…"></textarea>
 <label for="b-notas">Notas</label><textarea id="b-notas" data-k="notas" rows="4" placeholder="Estilo de escrita, o que evitar…"></textarea>
 </section>
@@ -56,9 +62,9 @@ small,.hint{color:var(--mu)}
 <section id="t-cfg">
 <label for="key">Chave do Gemini</label>
 <input id="key" type="password" autocomplete="off" placeholder="Cole sua chave aqui">
-  <label for="model">Modelo</label>
+<label for="model">Modelo</label>
 <input id="model" autocomplete="off">
-<small>Se der erro de modelo, troque por outro modelo Flash gratuito do Google AI Studio.</small>
+<small>Se der erro de modelo ou limite, troque por outro modelo Flash gratuito (ex.: gemini-3.5-flash-lite).</small>
 <div class="row"><button class="b" id="savecfg">Salvar ajustes</button></div>
 <label>Backup</label>
 <small>Seus dados ficam só neste aparelho. Baixe um backup de vez em quando.</small>
@@ -72,78 +78,156 @@ small,.hint{color:var(--mu)}
 <button data-t="bible">Bíblia</button>
 <button data-t="caps">Capítulos</button>
 <button data-t="cfg">Ajustes</button>
-</nav><script>
+</nav>
+<script>
 const $=s=>document.querySelector(s);
-const S={key:'',model:'gemini-3.5-flash',bible:{pers:'',pod:'',enr:'',notas:''},chapters:[],chat:[]};
+const S={key:'',model:'gemini-3.5-flash',bible:{enr:'',notas:''},cards:{pers:[],pod:[],mundo:[]},chapters:[],chat:[]};
 try{Object.assign(S,JSON.parse(localStorage.getItem('anime')||'{}'))}catch(e){}
+S.cards=Object.assign({pers:[],pod:[],mundo:[]},S.cards);
+if(S.bible.pers){S.cards.pers.push({id:1,nome:'Texto antigo',hist:S.bible.pers});delete S.bible.pers}
+if(S.bible.pod){S.cards.pod.push({id:2,nome:'Texto antigo',desc:S.bible.pod});delete S.bible.pod}
 const save=()=>{try{localStorage.setItem('anime',JSON.stringify(S))}catch(e){}};
+save();
 const esc=t=>t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 function dl(name,content,type){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([content],{type}));a.download=name;a.click()}
+const btn=(t,fn,cls)=>{const b=document.createElement('button');b.className=cls||'b';b.textContent=t;b.onclick=fn;return b};
+function modal(build){const o=document.createElement('div');o.className='ov';const b=document.createElement('div');b.className='bx';o.append(b);o.onclick=e=>{if(e.target===o)o.remove()};build(b,()=>o.remove());document.body.append(o)}
 
 document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{
   document.querySelectorAll('nav button,section').forEach(x=>x.classList.remove('on'));
   b.classList.add('on');$('#t-'+b.dataset.t).classList.add('on');
 });
 
-async function ask(system,contents){
+async function ask(system,contents,onTok){
   if(!S.key)throw new Error('Cole sua chave do Gemini na aba Ajustes.');
-  const r=await fetch('https://generativelanguage.googleapis.com/v1beta/models/'+encodeURIComponent(S.model)+':generateContent',{
+  const r=await fetch('https://generativelanguage.googleapis.com/v1beta/models/'+encodeURIComponent(S.model)+':streamGenerateContent?alt=sse',{
     method:'POST',headers:{'Content-Type':'application/json','x-goog-api-key':S.key},
-    body:JSON.stringify({systemInstruction:{parts:[{text:system}]},contents})});
-  const j=await r.json();
-  if(!r.ok)throw new Error((j.error&&j.error.message)||('Erro '+r.status));
-  const c=j.candidates&&j.candidates[0];
-  const t=c&&c.content&&c.content.parts?c.content.parts.map(p=>p.text||'').join(''):'';
-  if(!t)throw new Error('Resposta vazia. O Gemini pode ter bloqueado o trecho. Reformule o pedido.');
-  return t;
+    body:JSON.stringify({systemInstruction:{parts:[{text:system}]},contents,generationConfig:{maxOutputTokens:8192}})});
+  if(!r.ok){const j=await r.json().catch(()=>({}));throw new Error((j.error&&j.error.message)||('Erro '+r.status))}
+  const rd=r.body.getReader(),dc=new TextDecoder();let buf='',out='',fin='';
+  for(;;){
+    const {done,value}=await rd.read();if(done)break;
+    buf+=dc.decode(value,{stream:true});
+    let i;
+    while((i=buf.indexOf('\n'))>=0){
+      const line=buf.slice(0,i).trim();buf=buf.slice(i+1);
+      if(!line.startsWith('data:'))continue;
+      try{
+        const j=JSON.parse(line.slice(5));const c=j.candidates&&j.candidates[0];
+        if(c){if(c.finishReason)fin=c.finishReason;const p=c.content&&c.content.parts;
+          if(p){out+=p.map(x=>x.text||'').join('');if(onTok)onTok(out)}}
+      }catch(e){}
+    }
+  }
+  if(!out)throw new Error('Resposta vazia. O Gemini pode ter bloqueado o trecho. Reformule o pedido.');
+  if(fin==='MAX_TOKENS')out+='\n\n[A resposta foi cortada pelo limite. Peça “continue”.]';
+  return out;
 }
 
+const SEC=[
+ {k:'pers',t:'Personagens',n:'Personagem',f:[['nome','Nome'],['idade','Idade'],['apar','Aparência'],['pers','Personalidade'],['pod','Poderes'],['hist','História']]},
+ {k:'pod',t:'Poderes',n:'Poder',f:[['nome','Nome do poder'],['desc','Como funciona'],['lim','Limites e custo'],['quem','Quem usa']]},
+ {k:'mundo',t:'Mundo e regras',n:'Item',f:[['nome','Nome (lugar, regra, grupo…)'],['desc','Descrição']]}
+];
+const ct=(s,c)=>s.f.map(([x,l])=>c[x]?l+': '+c[x]:'').filter(Boolean).join('; ');
 function sys(){
-  const b=S.bible;
   const sm=S.chapters.map((c,i)=>`Cap. ${i+1} – ${c.title}: ${c.summary||c.text.slice(0,400)}`).join('\n');
+  const blk=s=>S.cards[s.k].map(c=>'- '+ct(s,c)).join('\n')||'(vazio)';
   return `Você é meu coautor de um anime de aventura, ação e fantasia com poderes sobrenaturais. Escreva em português, em formato de história com cenas, diálogos e ação. Siga a BÍBLIA abaixo com rigor: nomes, poderes e regras nunca mudam sozinhos. Se eu pedir algo que contradiga a Bíblia ou capítulos anteriores, avise antes de escrever. Quando criarmos algo novo e importante (personagem, poder, regra), lembre-me de adicioná-lo à Bíblia.
 
 [PERSONAGENS]
-${b.pers}
+${blk(SEC[0])}
 
-[PODERES E REGRAS DO MUNDO]
-${b.pod}
+[PODERES]
+${blk(SEC[1])}
+
+[MUNDO E REGRAS]
+${blk(SEC[2])}
 
 [ENREDO GERAL]
-${b.enr}
+${S.bible.enr||''}
 
 [NOTAS]
-${b.notas}
+${S.bible.notas||''}
 
 [RESUMO DOS CAPÍTULOS ATÉ AGORA]
 ${sm||'(nenhum ainda)'}`;
-}function renderChat(){
+}function menu(i){const m=S.chat[i];if(!m)return;modal((b,close)=>{
+  b.append(btn('Editar',()=>{close();editMsg(i)}),
+  btn('Copiar',()=>{if(navigator.clipboard)navigator.clipboard.writeText(m.t);close()}),
+  btn('Excluir',()=>{S.chat.splice(i,1);save();renderChat();close()},'b red'),
+  btn('Cancelar',close))})}
+function editMsg(i){modal((b,close)=>{
+  const t=document.createElement('textarea');t.rows=10;t.value=S.chat[i].t;b.append(t);
+  const r=document.createElement('div');r.className='row';
+  r.append(btn('Salvar',()=>{S.chat[i].t=t.value;save();renderChat();close()}),btn('Cancelar',close));b.append(r)})}
+
+function renderChat(){
   const box=$('#msgs');box.innerHTML='';
-  if(!S.chat.length){const p=document.createElement('p');p.className='hint';p.textContent='Peça seu primeiro capítulo, uma ideia de personagem ou um plano de arco. Preencha a Bíblia para o Gemini lembrar de tudo.';box.append(p)}
-  S.chat.forEach(m=>{
+  if(!S.chat.length){const p=document.createElement('p');p.className='hint';p.textContent='Peça seu primeiro capítulo, uma ideia de personagem ou um plano de arco. Segure o dedo numa mensagem para editar ou excluir.';box.append(p)}
+  S.chat.forEach((m,i)=>{
     const d=document.createElement('div');d.className='m '+m.r;
     const p=document.createElement('div');p.textContent=m.t;d.append(p);
-    if(m.r==='model'){const b=document.createElement('button');b.className='sm';b.textContent='Salvar como capítulo';b.onclick=()=>{
+    let tm;
+    d.ontouchstart=()=>{tm=setTimeout(()=>menu(i),500)};
+    d.ontouchend=d.ontouchmove=d.ontouchcancel=()=>clearTimeout(tm);
+    d.oncontextmenu=e=>{e.preventDefault();menu(i)};
+    if(m.r==='model'&&m.t!=='…'){d.append(btn('Salvar como capítulo',()=>{
       const title=prompt('Título do capítulo:');if(!title)return;
-      S.chapters.push({title,text:m.t,summary:''});save();renderCaps();$('#status').textContent='';alert('Capítulo salvo na aba Capítulos.')};d.append(b)}
+      S.chapters.push({title,text:m.t,summary:''});save();renderCaps();alert('Capítulo salvo na aba Capítulos.')},'sm'))}
     box.append(d);
   });
   box.scrollTop=box.scrollHeight;
 }
 
 $('#send').onclick=async()=>{
+  if(window.stopMic)window.stopMic();
   const i=$('#inp'),t=i.value.trim();if(!t)return;
   i.value='';$('#status').textContent='';
-  S.chat.push({r:'user',t});save();renderChat();
-  $('#send').disabled=true;$('#send').textContent='…';
+  S.chat.push({r:'user',t});const m={r:'model',t:'…'};S.chat.push(m);save();renderChat();
+  const sb=$('#send');sb.disabled=true;let raf=0;
   try{
-    const contents=S.chat.slice(-14).map(m=>({role:m.r,parts:[{text:m.t}]}));
-    const a=await ask(sys(),contents);
-    S.chat.push({r:'model',t:a});
-  }catch(e){$('#status').textContent=e.message}
-  $('#send').disabled=false;$('#send').textContent='Enviar';save();renderChat();
+    const contents=S.chat.slice(-15,-1).map(x=>({role:x.r,parts:[{text:x.t}]}));
+    while(contents.length&&contents[0].role==='model')contents.shift();
+    m.t=await ask(sys(),contents,o=>{m.t=o;if(!raf)raf=requestAnimationFrame(()=>{raf=0;renderChat()})});
+  }catch(e){
+    $('#status').textContent=e.message;
+    if(m.t==='…')S.chat=S.chat.filter(x=>x!==m);
+  }
+  sb.disabled=false;save();renderChat();
 };
 
+function edit(s,c){modal((b,close)=>{
+  const h=document.createElement('b');h.textContent=(c.id?'Editar ':'Novo ')+s.n.toLowerCase();b.append(h);
+  const ins={};
+  s.f.forEach(([x,l])=>{
+    const lb=document.createElement('label');lb.textContent=l;
+    const e=document.createElement(x==='nome'||x==='idade'?'input':'textarea');
+    if(e.tagName==='TEXTAREA')e.rows=3;
+    e.value=c[x]||'';ins[x]=e;b.append(lb,e);
+  });
+  const r=document.createElement('div');r.className='row';
+  r.append(btn('Salvar',()=>{
+    const o=c.id?c:{id:Date.now()};
+    s.f.forEach(([x])=>{o[x]=ins[x].value.trim()});
+    if(!o.nome){alert('Dê um nome.');return}
+    if(!c.id)S.cards[s.k].push(o);
+    save();bib();close();
+  }),btn('Cancelar',close));
+  if(c.id)r.append(btn('Excluir',()=>{if(confirm('Excluir?')){S.cards[s.k]=S.cards[s.k].filter(z=>z!==c);save();bib();close()}},'b red'));
+  b.append(r);
+})}
+function bib(){
+  const box=$('#bib');box.innerHTML='';
+  SEC.forEach(s=>{
+    const h=document.createElement('div');h.className='hd';
+    const tt=document.createElement('b');tt.textContent=s.t;h.append(tt,btn('+ Novo '+s.n.toLowerCase(),()=>edit(s,{}),'sm'));box.append(h);
+    const g=document.createElement('div');g.className='grid';
+    S.cards[s.k].forEach(c=>{const t=document.createElement('button');t.className='tile';t.textContent=c.nome||'(sem nome)';t.onclick=()=>edit(s,c);g.append(t)});
+    if(!S.cards[s.k].length){const p=document.createElement('small');p.textContent='Nenhum ainda.';g.append(p)}
+    box.append(g);
+  });
+}
 document.querySelectorAll('[data-k]').forEach(el=>{
   el.value=S.bible[el.dataset.k]||'';
   el.oninput=()=>{S.bible[el.dataset.k]=el.value;save()};
@@ -157,13 +241,13 @@ function renderCaps(){
     const h=document.createElement('b');h.textContent=`Capítulo ${i+1}: ${c.title}`;d.append(h);
     if(c.summary){const s=document.createElement('div');s.className='hint';s.textContent='Resumo: '+c.summary;d.append(s)}
     const pre=document.createElement('pre');pre.textContent=c.text.length>500?c.text.slice(0,500)+'…':c.text;d.append(pre);
-    const mk=(txt,fn,cls)=>{const b=document.createElement('button');b.className='sm '+(cls||'');b.textContent=txt;b.onclick=fn;d.append(b);return b};
-    const rb=mk(c.summary?'Refazer resumo':'Gerar resumo (memória)',async()=>{
+    const rb=btn(c.summary?'Refazer resumo':'Gerar resumo (memória)',async()=>{
       rb.disabled=true;rb.textContent='Resumindo…';
       try{c.summary=await ask('Você resume capítulos de histórias de anime.',[{role:'user',parts:[{text:'Resuma em até 6 linhas, citando personagens, poderes usados e acontecimentos-chave:\n\n'+c.text}]}]);save()}catch(e){alert(e.message)}
-      renderCaps()});
-    mk('Baixar .txt',()=>dl(`capitulo-${i+1}.txt`,`${c.title}\n\n${c.text}`,'text/plain'));
-    mk('Excluir',()=>{if(confirm('Excluir este capítulo?')){S.chapters.splice(i,1);save();renderCaps()}},'red');
+      renderCaps()},'sm');
+    d.append(rb,
+      btn('Baixar .txt',()=>dl(`capitulo-${i+1}.txt`,`${c.title}\n\n${c.text}`,'text/plain'),'sm'),
+      btn('Excluir',()=>{if(confirm('Excluir este capítulo?')){S.chapters.splice(i,1);save();renderCaps()}},'sm red'));
     box.append(d);
   });
 }
@@ -180,41 +264,35 @@ $('#rs').onclick=()=>$('#file').click();
 $('#file').onchange=e=>{
   const f=e.target.files[0];if(!f)return;
   const r=new FileReader();r.onload=()=>{try{const d=JSON.parse(r.result);delete d.key;Object.assign(S,d);save();location.reload()}catch(x){$('#cfgmsg').textContent='Arquivo de backup inválido.'}};r.readAsText(f);
-};
+};renderChat();renderCaps();bib();
 
 (function(){
 const R=window.SpeechRecognition||window.webkitSpeechRecognition;
-const send=$('#send');
 const mic=document.createElement('button');
 mic.className='b';mic.textContent='🎤';mic.setAttribute('aria-label','Falar');
-send.before(mic);
+$('#send').before(mic);
 if(!R){mic.disabled=true;return}
-let rec=null,on=false,base='';
-mic.onclick=()=>{
-  if(on){rec.stop();return}
+const inp=$('#inp'),cap=$('#cap');
+let rec=null,on=false,base='',fin='';
+function show(t){inp.value=base+fin+t;cap.textContent=inp.value||'Pode falar…';cap.scrollTop=cap.scrollHeight}
+function ui(v){mic.textContent=v?'⏹':'🎤';mic.classList.toggle('red',v);cap.style.display=v?'block':'none'}
+function start(){
   rec=new R();rec.lang='pt-BR';rec.interimResults=true;rec.continuous=false;
-  const inp=$('#inp');
-  base=inp.value?inp.value.trimEnd()+' ':'';
-  rec.onstart=()=>{on=true;mic.textContent='⏹';mic.classList.add('red');$('#status').textContent=''};
-  rec.onresult=e=>{let t='';for(let i=0;i<e.results.length;i++)t+=e.results[i][0].transcript;inp.value=base+t};
-  rec.onerror=e=>{$('#status').textContent=e.error==='not-allowed'?'Permita o microfone no Chrome (cadeado ao lado do endereço).':'Erro no microfone: '+e.error};
-  rec.onend=()=>{on=false;mic.textContent='🎤';mic.classList.remove('red')};
-  rec.start();
+  rec.onresult=e=>{let it='';for(let i=e.resultIndex;i<e.results.length;i++){const r=e.results[i];if(r.isFinal)fin+=r[0].transcript+' ';else it+=r[0].transcript}show(it)};
+  rec.onerror=e=>{
+    if(e.error==='no-speech'||e.error==='aborted')return;
+    on=false;ui(false);
+    $('#status').textContent=e.error==='not-allowed'?'Permita o microfone no Chrome (cadeado ao lado do endereço).':'Erro no microfone: '+e.error;
+  };
+  rec.onend=()=>{if(on)setTimeout(()=>{if(on){try{start()}catch(x){}}},150);else ui(false)};
+  try{rec.start()}catch(x){}
+}
+window.stopMic=()=>{if(!on)return;on=false;ui(false);try{rec.stop()}catch(x){}};
+mic.onclick=()=>{
+  if(on){window.stopMic();return}
+  on=true;base=inp.value?inp.value.trimEnd()+' ':'';fin='';
+  $('#status').textContent='';ui(true);show('');start();
 };
-})();
-renderChat();renderCaps();
-(function(){
-const inp=$('#inp'),row=inp.parentElement,mic=row.querySelector('button.b:not(#send)');
-if(!mic)return;
-const cap=document.createElement('div');
-cap.style.cssText='display:none;padding:12px 14px;border:2px solid var(--ink);border-radius:6px;background:var(--pn);box-shadow:3px 3px 0 var(--ink);font-size:20px;line-height:1.35;max-height:35vh;overflow:auto';
-row.before(cap);
-let t=null;
-function upd(){cap.textContent=inp.value||'Pode falar…';cap.scrollTop=cap.scrollHeight}
-new MutationObserver(()=>{
-  if(mic.classList.contains('red')){cap.style.display='block';upd();t=setInterval(upd,100)}
-  else{cap.style.display='none';clearInterval(t)}
-}).observe(mic,{attributes:true,attributeFilter:['class']});
 })();
 </script>
 </body>
